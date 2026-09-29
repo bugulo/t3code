@@ -192,7 +192,9 @@ describe("nativeMarkdownTextRuns", () => {
     const markdown = [
       String.raw`![shot](C:\Users\me\.t3\_build\shot.png "Shot") and [config](<C:\My Files\.git\config>)`,
       String.raw`![ref][ref] and [site](https://example.com/a\.b) and [wsl](\\wsl.localhost\Ubuntu\.t3\x.ts)`,
+      String.raw`[logs](C:\logs\.t3(archive)\a.png) and ![build][build\]]`,
       String.raw`[ref]: C:\Users\me\.t3\ref.png`,
+      String.raw`[build\]]: C:\out\.t3\b.png`,
     ].join("\n\n");
     const node: MarkdownNode = {
       type: "document",
@@ -212,6 +214,13 @@ describe("nativeMarkdownTextRuns", () => {
             { type: "link", href: String.raw`\wsl.localhost\Ubuntu.t3\x.ts` },
           ],
         },
+        {
+          type: "paragraph",
+          children: [
+            { type: "link", href: String.raw`C:\logs.t3(archive)\a.png` },
+            { type: "image", href: String.raw`C:\out.t3\b.png`, alt: "build" },
+          ],
+        },
       ],
     };
 
@@ -224,7 +233,26 @@ describe("nativeMarkdownTextRuns", () => {
       String.raw`C:\Users\me\.t3\ref.png`,
       "https://example.com/a.b",
       String.raw`\\wsl.localhost\Ubuntu\.t3\x.ts`,
+      String.raw`C:\logs\.t3(archive)\a.png`,
+      String.raw`C:\out\.t3\b.png`,
     ]);
+  });
+
+  it("leaves a Windows path as parsed when the message writes it two ways", () => {
+    const markdown = [
+      String.raw`[b](C:\x.t3\a.png)`,
+      "```md",
+      String.raw`[a](C:\x\.t3\a.png)`,
+      "```",
+    ].join("\n");
+    const node: MarkdownNode = {
+      type: "paragraph",
+      children: [{ type: "link", href: String.raw`C:\x.t3\a.png` }],
+    };
+
+    expect(nativeMarkdownWithAuthoredWindowsPaths(node, markdown).children?.[0]?.href).toBe(
+      String.raw`C:\x.t3\a.png`,
+    );
   });
 
   it("normalizes common inline HTML and entities", () => {

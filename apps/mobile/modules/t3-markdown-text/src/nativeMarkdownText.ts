@@ -519,18 +519,23 @@ export function nativeMarkdownWithPreservedSoftBreaks(node: MarkdownNode): Markd
 }
 
 const WINDOWS_PATH_DESTINATION_PATTERN =
-  /(?:\]\(|^ {0,3}\[[^\]\n]+\]:)\s*(?:<((?:[A-Za-z]:|\\)\\[^>\n]*)>|((?:[A-Za-z]:|\\)\\[^\s)]*))/gm;
+  /(?:\]\(|^ {0,3}\[(?:\\.|[^\]\n])+\]:)\s*(?:<((?:[A-Za-z]:|\\)\\[^>\n]*)>|((?:[A-Za-z]:|\\)\\(?:[^\s()]|\([^\s()]*\))*))/gm;
 const MARKDOWN_ESCAPE_PATTERN = /\\([!-/:-@[-`{-~])/g;
 
-/** md4c drops backslashes in `C:\me\.t3` and `\\host`; Windows path backslashes are all separators. */
+/**
+ * md4c drops backslashes in `C:\me\.t3` and `\\host`; Windows path backslashes are all separators.
+ * A parsed path written more than one way is ambiguous and stays as parsed.
+ */
 export function nativeMarkdownWithAuthoredWindowsPaths(
   node: MarkdownNode,
   markdown: string,
 ): MarkdownNode {
-  const authoredByParsed = new Map<string, string>();
+  const authoredByParsed = new Map<string, string | null>();
   for (const [, enclosed, bare] of markdown.matchAll(WINDOWS_PATH_DESTINATION_PATTERN)) {
     const authored = enclosed ?? bare ?? "";
-    authoredByParsed.set(authored.replace(MARKDOWN_ESCAPE_PATTERN, "$1"), authored);
+    const parsed = authored.replace(MARKDOWN_ESCAPE_PATTERN, "$1");
+    const known = authoredByParsed.get(parsed);
+    authoredByParsed.set(parsed, known === undefined || known === authored ? authored : null);
   }
   if (authoredByParsed.size === 0) return node;
   const restore = (current: MarkdownNode): MarkdownNode => {
