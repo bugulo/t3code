@@ -185,6 +185,35 @@ describe("ChatMarkdown workspace images", () => {
     expect(html).toContain("https://signed.test/workspace-image.svg");
   });
 
+  it("keeps every backslash in drive and UNC image paths", () => {
+    render(
+      [
+        String.raw`![inline](C:\Users\shawn\.t3\_build\workspace-image.svg)`,
+        "![reference][shot]",
+        String.raw`[shot]: C:\Users\shawn\.t3\_build\workspace-image.svg`,
+        String.raw`![unc](\\wsl.localhost\Ubuntu\.t3\workspace-image.svg)`,
+      ].join("\n\n"),
+    );
+
+    expect(testState.resources).toEqual([
+      {
+        _tag: "media-file",
+        threadId: threadRef.threadId,
+        path: String.raw`C:\Users\shawn\.t3\_build\workspace-image.svg`,
+      },
+      {
+        _tag: "media-file",
+        threadId: threadRef.threadId,
+        path: "C:/Users/shawn/.t3/_build/workspace-image.svg",
+      },
+      {
+        _tag: "media-file",
+        threadId: threadRef.threadId,
+        path: String.raw`\\wsl.localhost\Ubuntu\.t3\workspace-image.svg`,
+      },
+    ]);
+  });
+
   it("keeps a tall image placeholder and loaded image at the same proportional bounds", () => {
     const markdown = '<img src=".t3/workspace-image.svg" alt="sized" width="96" height="128">';
     const loadedStyle = firstInlineStyle(render(markdown));

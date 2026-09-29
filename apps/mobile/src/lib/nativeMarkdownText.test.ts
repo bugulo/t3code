@@ -7,6 +7,7 @@ import {
   nativeMarkdownDocumentRuns,
   nativeMarkdownListItemBlocks,
   nativeMarkdownTextRuns,
+  nativeMarkdownWithAuthoredWindowsPaths,
   nativeMarkdownWithPreservedSoftBreaks,
   nativeMarkdownContextCopyRanges,
   contextChipPresentation,
@@ -184,6 +185,45 @@ describe("nativeMarkdownTextRuns", () => {
 
     expect(nativeMarkdownTextRuns(nativeMarkdownWithPreservedSoftBreaks(node))).toEqual([
       { text: "first\nsecond" },
+    ]);
+  });
+
+  it("restores Windows path backslashes the parser drops before punctuation", () => {
+    const markdown = [
+      String.raw`![shot](C:\Users\me\.t3\_build\shot.png "Shot") and [config](<C:\My Files\.git\config>)`,
+      String.raw`![ref][ref] and [site](https://example.com/a\.b) and [wsl](\\wsl.localhost\Ubuntu\.t3\x.ts)`,
+      String.raw`[ref]: C:\Users\me\.t3\ref.png`,
+    ].join("\n\n");
+    const node: MarkdownNode = {
+      type: "document",
+      children: [
+        {
+          type: "paragraph",
+          children: [
+            { type: "image", href: String.raw`C:\Users\me.t3_build\shot.png`, alt: "shot" },
+            { type: "link", href: String.raw`C:\My Files.git\config` },
+          ],
+        },
+        {
+          type: "paragraph",
+          children: [
+            { type: "image", href: String.raw`C:\Users\me.t3\ref.png`, alt: "ref" },
+            { type: "link", href: "https://example.com/a.b" },
+            { type: "link", href: String.raw`\wsl.localhost\Ubuntu.t3\x.ts` },
+          ],
+        },
+      ],
+    };
+
+    const hrefs = nativeMarkdownWithAuthoredWindowsPaths(node, markdown).children?.flatMap(
+      (paragraph) => paragraph.children?.map((child) => child.href) ?? [],
+    );
+    expect(hrefs).toEqual([
+      String.raw`C:\Users\me\.t3\_build\shot.png`,
+      String.raw`C:\My Files\.git\config`,
+      String.raw`C:\Users\me\.t3\ref.png`,
+      "https://example.com/a.b",
+      String.raw`\\wsl.localhost\Ubuntu\.t3\x.ts`,
     ]);
   });
 

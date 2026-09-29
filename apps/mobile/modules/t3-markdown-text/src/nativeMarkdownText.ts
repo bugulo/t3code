@@ -518,6 +518,29 @@ export function nativeMarkdownWithPreservedSoftBreaks(node: MarkdownNode): Markd
   };
 }
 
+const WINDOWS_PATH_DESTINATION_PATTERN =
+  /(?:\]\(|^ {0,3}\[[^\]\n]+\]:)\s*(?:<((?:[A-Za-z]:|\\)\\[^>\n]*)>|((?:[A-Za-z]:|\\)\\[^\s)]*))/gm;
+const MARKDOWN_ESCAPE_PATTERN = /\\([!-/:-@[-`{-~])/g;
+
+/** md4c drops backslashes in `C:\me\.t3` and `\\host`; Windows path backslashes are all separators. */
+export function nativeMarkdownWithAuthoredWindowsPaths(
+  node: MarkdownNode,
+  markdown: string,
+): MarkdownNode {
+  const authoredByParsed = new Map<string, string>();
+  for (const [, enclosed, bare] of markdown.matchAll(WINDOWS_PATH_DESTINATION_PATTERN)) {
+    const authored = enclosed ?? bare ?? "";
+    authoredByParsed.set(authored.replace(MARKDOWN_ESCAPE_PATTERN, "$1"), authored);
+  }
+  if (authoredByParsed.size === 0) return node;
+  const restore = (current: MarkdownNode): MarkdownNode => {
+    const href = current.href && authoredByParsed.get(current.href);
+    const children = current.children?.map(restore);
+    return { ...current, ...(href ? { href } : {}), ...(children ? { children } : {}) };
+  };
+  return restore(node);
+}
+
 function appendBlockTerminator(
   runs: NativeMarkdownTextRun[],
   context: RunContext,
